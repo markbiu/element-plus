@@ -34,6 +34,7 @@
           ref="input"
           :class="nsInput.e('inner')"
           v-bind="attrs"
+          :name="name"
           :minlength="minlength"
           :maxlength="maxlength"
           :type="showPassword ? (passwordVisible ? 'text' : 'password') : type"
@@ -47,6 +48,7 @@
           :form="form"
           :autofocus="autofocus"
           :role="containerRole"
+          :inputmode="inputmode"
           @compositionstart="handleCompositionStart"
           @compositionupdate="handleCompositionUpdate"
           @compositionend="handleCompositionEnd"
@@ -72,7 +74,7 @@
               @mousedown.prevent="NOOP"
               @click="clear"
             >
-              <circle-close />
+              <component :is="clearIcon" />
             </el-icon>
             <el-icon
               v-if="showPwdVisible"
@@ -161,11 +163,7 @@ import {
 import { useResizeObserver } from '@vueuse/core'
 import { isNil } from 'lodash-unified'
 import { ElIcon } from '@element-plus/components/icon'
-import {
-  CircleClose,
-  Hide as IconHide,
-  View as IconView,
-} from '@element-plus/icons-vue'
+import { Hide as IconHide, View as IconView } from '@element-plus/icons-vue'
 import {
   useFormDisabled,
   useFormItem,
@@ -193,12 +191,14 @@ import {
 } from '@element-plus/constants'
 import { calcTextareaHeight } from './utils'
 import { inputEmits, inputProps } from './input'
+
 import type { StyleValue } from 'vue'
 
 type TargetElement = HTMLInputElement | HTMLTextAreaElement
 
+const COMPONENT_NAME = 'ElInput'
 defineOptions({
-  name: 'ElInput',
+  name: COMPONENT_NAME,
   inheritAttrs: false,
 })
 const props = defineProps(inputProps)
@@ -253,9 +253,7 @@ const _ref = computed(() => input.value || textarea.value)
 const { wrapperRef, isFocused, handleFocus, handleBlur } = useFocusController(
   _ref,
   {
-    beforeFocus() {
-      return inputDisabled.value
-    },
+    disabled: inputDisabled,
     afterBlur() {
       if (props.validateEvent) {
         elFormItem?.validate?.('blur').catch((err) => debugWarn(err))
@@ -292,11 +290,7 @@ const showClear = computed(
     (isFocused.value || hovering.value)
 )
 const showPwdVisible = computed(
-  () =>
-    props.showPassword &&
-    !inputDisabled.value &&
-    !!nativeInputValue.value &&
-    (!!nativeInputValue.value || isFocused.value)
+  () => props.showPassword && !inputDisabled.value && !!nativeInputValue.value
 )
 const isWordLimitVisible = computed(
   () =>
@@ -373,7 +367,7 @@ const createOnceInitResize = (resizeTextarea: () => void) => {
     if (isInit || !props.autosize) return
     const isElHidden = textarea.value?.offsetParent === null
     if (!isElHidden) {
-      resizeTextarea()
+      setTimeout(resizeTextarea)
       isInit = true
     }
   }
@@ -502,7 +496,7 @@ watch(
 onMounted(() => {
   if (!props.formatter && props.parser) {
     debugWarn(
-      'ElInput',
+      COMPONENT_NAME,
       'If you set the parser, you also need to set the formatter.'
     )
   }

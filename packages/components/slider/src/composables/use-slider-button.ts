@@ -2,6 +2,7 @@ import { computed, inject, nextTick, ref, watch } from 'vue'
 import { debounce } from 'lodash-unified'
 import { useEventListener } from '@vueuse/core'
 import { EVENT_CODE, UPDATE_MODEL_EVENT } from '@element-plus/constants'
+import { getEventCode } from '@element-plus/utils'
 import { sliderContextKey } from '../constants'
 
 import type { CSSProperties, ComputedRef, Ref, SetupContext } from 'vue'
@@ -50,28 +51,7 @@ const useTooltip = (
   }
 }
 
-type HTMLType = HTMLDivElement | undefined
-type useSliderButtonType = (
-  props: SliderButtonProps,
-  initData: SliderButtonInitData,
-  emit: SetupContext<SliderButtonEmits>['emit']
-) => {
-  disabled: Ref<boolean>
-  button: Ref<HTMLType>
-  tooltip: Ref<TooltipInstance | undefined>
-  tooltipVisible: Ref<boolean>
-  showTooltip: Ref<SliderProps['showTooltip']>
-  persistent: Ref<SliderProps['persistent']>
-  wrapperStyle: ComputedRef<CSSProperties>
-  formatValue: ComputedRef<number | string>
-  handleMouseEnter: () => void
-  handleMouseLeave: () => void
-  onButtonDown: (event: MouseEvent | TouchEvent) => void
-  onKeyDown: (event: KeyboardEvent) => void
-  setPosition: (newPosition: number) => Promise<void>
-}
-
-export const useSliderButton: useSliderButtonType = (
+export const useSliderButton = (
   props: SliderButtonProps,
   initData: SliderButtonInitData,
   emit: SetupContext<SliderButtonEmits>['emit']
@@ -170,9 +150,10 @@ export const useSliderButton: useSliderButtonType = (
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
+    const code = getEventCode(event)
     let isPreventDefault = true
 
-    switch (event.code) {
+    switch (code) {
       case EVENT_CODE.left:
       case EVENT_CODE.down:
         onLeftKeyDown()

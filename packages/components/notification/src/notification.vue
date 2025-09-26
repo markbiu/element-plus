@@ -31,7 +31,7 @@
           </slot>
         </div>
         <el-icon v-if="showClose" :class="ns.e('closeBtn')" @click.stop="close">
-          <Close />
+          <component :is="closeIcon" />
         </el-icon>
       </div>
     </div>
@@ -41,7 +41,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { useEventListener, useTimeoutFn } from '@vueuse/core'
-import { CloseComponents, TypeComponentsMap } from '@element-plus/utils'
+import { TypeComponentsMap, getEventCode } from '@element-plus/utils'
 import { EVENT_CODE } from '@element-plus/constants'
 import { ElIcon } from '@element-plus/components/icon'
 import { useGlobalComponentSettings } from '@element-plus/components/config-provider'
@@ -58,8 +58,6 @@ defineEmits(notificationEmits)
 
 const { ns, zIndex } = useGlobalComponentSettings('notification')
 const { nextZIndex, currentZIndex } = zIndex
-
-const { Close } = CloseComponents
 
 const visible = ref(false)
 let timer: (() => void) | undefined = undefined
@@ -105,16 +103,23 @@ function close() {
   visible.value = false
 }
 
-function onKeydown({ code }: KeyboardEvent) {
-  if (code === EVENT_CODE.delete || code === EVENT_CODE.backspace) {
-    clearTimer() // press delete/backspace clear timer
-  } else if (code === EVENT_CODE.esc) {
-    // press esc to close the notification
-    if (visible.value) {
-      close()
-    }
-  } else {
-    startTimer() // resume timer
+function onKeydown(event: KeyboardEvent) {
+  const code = getEventCode(event)
+
+  switch (code) {
+    case EVENT_CODE.delete:
+    case EVENT_CODE.backspace:
+      clearTimer() // press delete/backspace clear timer
+      break
+    case EVENT_CODE.esc:
+      // press esc to close the notification
+      if (visible.value) {
+        close()
+      }
+      break
+    default: // resume timer
+      startTimer()
+      break
   }
 }
 

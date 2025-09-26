@@ -37,7 +37,10 @@
               </el-icon>
             </span>
           </template>
-          <div v-if="showProgress" :class="[ns.e('btn'), ns.e('progress')]">
+          <div
+            v-if="$slots.progress || showProgress"
+            :class="[ns.e('btn'), ns.e('progress')]"
+          >
             <slot
               name="progress"
               :active-index="activeIndex"
@@ -56,6 +59,7 @@
                 :next="next"
                 :reset="toggleMode"
                 :active-index="activeIndex"
+                :set-active-item="setActiveItem"
               >
                 <el-icon @click="handleActions('zoomOut')">
                   <ZoomOut />
@@ -79,12 +83,17 @@
           </div>
           <!-- CANVAS -->
           <div :class="ns.e('canvas')">
+            <slot
+              v-if="loadError && $slots['viewer-error']"
+              name="viewer-error"
+              :active-index="activeIndex"
+              :src="currentImg"
+            />
             <img
-              v-for="(url, i) in urlList"
-              v-show="i === activeIndex"
-              :ref="(el) => (imgRefs[i] = el as HTMLImageElement)"
-              :key="url"
-              :src="url"
+              v-else
+              ref="imgRef"
+              :key="currentImg"
+              :src="currentImg"
               :style="imgStyle"
               :class="ns.e('img')"
               :crossorigin="crossorigin"
@@ -111,11 +120,11 @@ import {
   shallowRef,
   watch,
 } from 'vue'
-import { useEventListener } from '@vueuse/core'
+import { clamp, useEventListener } from '@vueuse/core'
 import { throttle } from 'lodash-unified'
 import { useLocale, useNamespace, useZIndex } from '@element-plus/hooks'
 import { EVENT_CODE } from '@element-plus/constants'
-import { keysOf } from '@element-plus/utils'
+import { getEventCode, keysOf } from '@element-plus/utils'
 import ElFocusTrap from '@element-plus/components/focus-trap'
 import ElTeleport from '@element-plus/components/teleport'
 import ElIcon from '@element-plus/components/icon'
@@ -160,15 +169,21 @@ const { t } = useLocale()
 const ns = useNamespace('image-viewer')
 const { nextZIndex } = useZIndex()
 const wrapper = ref<HTMLDivElement>()
-const imgRefs = ref<HTMLImageElement[]>([])
+const imgRef = ref<HTMLImageElement>()
 
 const scopeEventListener = effectScope()
 
+const scaleClamped = computed(() => {
+  const { scale, minScale, maxScale } = props
+  return clamp(scale, minScale, maxScale)
+})
+
 const loading = ref(true)
+const loadError = ref(false)
 const activeIndex = ref(props.initialIndex)
 const mode = shallowRef<ImageViewerMode>(modes.CONTAIN)
 const transform = ref({
-  scale: 1,
+  scale: scaleClamped.value,
   deg: 0,
   offsetX: 0,
   offsetY: 0,
@@ -233,7 +248,9 @@ function hide() {
 
 function registerEventListener() {
   const keydownHandler = throttle((e: KeyboardEvent) => {
-    switch (e.code) {
+    const code = getEventCode(e)
+
+    switch (code) {
       // ESC
       case EVENT_CODE.esc:
         props.closeOnPressEscape && hide()
@@ -283,7 +300,9 @@ function handleImgLoad() {
 }
 
 function handleImgError(e: Event) {
+  loadError.value = true
   loading.value = false
+  emit('error', e)
   ;(e.target as HTMLImageElement).alt = t('el.image.error')
 }
 
@@ -312,7 +331,7 @@ function handleMouseDown(e: MouseEvent) {
 
 function reset() {
   transform.value = {
-    scale: 1,
+    scale: scaleClamped.value,
     deg: 0,
     offsetX: 0,
     offsetY: 0,
@@ -321,7 +340,7 @@ function reset() {
 }
 
 function toggleMode() {
-  if (loading.value) return
+  if (loading.value || loadError.value) return
 
   const modeNames = keysOf(modes)
   const modeValues = Object.values(modes)
@@ -333,6 +352,7 @@ function toggleMode() {
 }
 
 function setActiveItem(index: number) {
+  loadError.value = false
   const len = props.urlList.length
   activeIndex.value = (index + len) % len
 }
@@ -348,7 +368,7 @@ function next() {
 }
 
 function handleActions(action: ImageViewerAction, options = {}) {
-  if (loading.value) return
+  if (loading.value || loadError.value) return
   const { minScale, maxScale } = props
   const { zoomRate, rotateDeg, enableTransition } = {
     zoomRate: props.zoomRate,
@@ -407,9 +427,16 @@ function wheelHandler(e: WheelEvent) {
   }
 }
 
+watch(
+  () => scaleClamped.value,
+  (val) => {
+    transform.value.scale = val
+  }
+)
+
 watch(currentImg, () => {
   nextTick(() => {
-    const $img = imgRefs.value[0]
+    const $img = imgRef.value
     if (!$img?.complete) {
       loading.value = true
     }

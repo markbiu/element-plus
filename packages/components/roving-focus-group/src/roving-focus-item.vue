@@ -19,7 +19,7 @@ import {
   unref,
 } from 'vue'
 import { useId } from '@element-plus/hooks'
-import { composeEventHandlers } from '@element-plus/utils'
+import { composeEventHandlers, getEventCode } from '@element-plus/utils'
 import { EVENT_CODE } from '@element-plus/constants'
 import {
   ElCollectionItem as ElRovingFocusCollectionItem,
@@ -40,10 +40,7 @@ export default defineComponent({
       type: Boolean,
       default: true,
     },
-    active: {
-      type: Boolean,
-      default: false,
-    },
+    active: Boolean,
   },
   emits: ['mousedown', 'focus', 'keydown'],
   setup(props, { emit }) {
@@ -87,7 +84,9 @@ export default defineComponent({
         emit('keydown', e)
       },
       (e) => {
-        const { code, shiftKey, target, currentTarget } = e as KeyboardEvent
+        const { shiftKey, target, currentTarget } = e as KeyboardEvent
+        const code = getEventCode(e as KeyboardEvent)
+
         if (code === EVENT_CODE.tab && shiftKey) {
           onItemShiftTab()
           return
